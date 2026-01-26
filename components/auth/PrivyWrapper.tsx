@@ -38,12 +38,15 @@ export default function PrivyWrapper({ children }: PrivyWrapperProps) {
         },
 
         // Embedded wallet configuration - SOLANA ONLY
-        // With walletChainType: "solana-only", this will only create Solana wallets
-        // Per Privy documentation: createOnLogin works with walletChainType to determine chain
+        // Explicitly disable EVM and enable Solana for new users
+        // Per https://docs.privy.io/guide/react/wallets/embedded/creation
         embeddedWallets: {
-          // Create wallet on login for all users
-          // Since walletChainType is "solana-only", this will only create Solana wallets
-          createOnLogin: "all-users",
+          createOnLogin: "users-without-wallets",
+
+          // Disable Ethereum wallet creation entirely (Privy docs; SDK types omit chain-specific keys)
+          // @ts-expect-error - ethereum/solana createOnLogin supported per docs
+          ethereum: { createOnLogin: "off" },
+          solana: { createOnLogin: "users-without-wallets" },
 
           // Ensure wallet is ready before using
           noPromptOnSignature: false,
