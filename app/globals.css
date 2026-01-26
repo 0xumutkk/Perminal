@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-[#020617] text-slate-100 antialiased;
+}
+
+.gradient-border {
+  position: relative;
+}
+
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(circle at top left, #6366f1, transparent 60%),
+    radial-gradient(circle at bottom right, #0ea5e9, transparent 60%);
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+  z-index: -1;
+}
+
+.gradient-border:hover::before {
+  opacity: 1;
+}
+
