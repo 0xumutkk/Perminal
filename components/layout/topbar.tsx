@@ -11,7 +11,6 @@ import {
   Copy,
   Check,
   Bell,
-  Settings,
   User,
   TrendingUp,
   BarChart3,
@@ -22,6 +21,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth, useWallets } from "@/hooks/useAuth";
+import { useWalletBalance } from "@/hooks/useWalletBalance";
 import { useRouter } from "next/navigation";
 import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
@@ -33,8 +33,9 @@ const navItems = [
 ];
 
 export function Topbar() {
-  const { ready, authenticated, login, logout, user } = useAuth();
+  const { ready, authenticated, login, logout, user, fundWallet } = useAuth();
   const { activeWallet } = useWallets();
+  const { formattedUsdc, isLoading: isBalanceLoading } = useWalletBalance();
   const pathname = usePathname();
   const router = useRouter();
   const [copied, setCopied] = useState(false);
@@ -101,17 +102,17 @@ export function Topbar() {
       console.log("[Topbar] Logout already in progress, ignoring");
       return; // Prevent double-click
     }
-    
+
     if (!logout || typeof logout !== "function") {
       console.error("[Topbar] Logout function is not available:", logout);
       alert("Logout function is not available. Please refresh the page.");
       return;
     }
-    
+
     console.log("[Topbar] Starting logout process...");
     setShowDropdown(false);
     setIsLoggingOut(true);
-    
+
     try {
       console.log("[Topbar] Calling logout function...");
       await logout();
@@ -197,13 +198,9 @@ export function Topbar() {
             {/* Wallet Balance */}
             <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/30 px-3 py-1.5">
               <Wallet className="h-4 w-4 text-emerald-400" />
-              <span className="text-sm font-medium text-emerald-400">$0.00</span>
-            </div>
-
-            {/* Settings Balance */}
-            <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/30 px-3 py-1.5">
-              <Settings className="h-4 w-4 text-emerald-400" />
-              <span className="text-sm font-medium text-emerald-400">$0.00</span>
+              <span className="text-sm font-medium text-emerald-400">
+                {isBalanceLoading ? "..." : formattedUsdc}
+              </span>
             </div>
 
             {/* Notifications */}
@@ -212,7 +209,10 @@ export function Topbar() {
             </button>
 
             {/* Deposit */}
-            <button className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-900/50 hover:text-slate-100">
+            <button
+              onClick={fundWallet}
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-900/50 hover:text-slate-100"
+            >
               Deposit
             </button>
 

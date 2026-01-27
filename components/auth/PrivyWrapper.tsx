@@ -41,24 +41,16 @@ export default function PrivyWrapper({ children }: PrivyWrapperProps) {
         // Explicitly disable EVM and enable Solana for new users
         // Per https://docs.privy.io/guide/react/wallets/embedded/creation
         embeddedWallets: {
-
           // Disable Ethereum wallet creation entirely (Solana-only mode)
-          createOnLogin: "off",
-
-          // Ensure wallet is ready before using
-          noPromptOnSignature: false,
+          ethereum: {
+            createOnLogin: "off",
+          },
+          solana: {
+            createOnLogin: "off",
+          },
         },
 
-        // Solana RPC configuration (required for embedded wallet operations)
-        // Format: object with cluster identifiers as keys
-        // Solana RPC configuration
-        // Using solanaClusters as per PrivyClientConfig type definition
-        solanaClusters: [
-          {
-            name: "mainnet-beta",
-            rpcUrl: process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com",
-          },
-        ],
+
 
         // External Solana wallets (Phantom, Solflare, etc.)
         externalWallets: {

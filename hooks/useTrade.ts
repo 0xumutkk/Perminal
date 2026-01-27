@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useAuth, useWallets } from "@/hooks/useAuth";
-import { Connection, VersionedTransaction } from "@solana/web3.js";
+import { Connection, VersionedTransaction, Transaction } from "@solana/web3.js";
 import { dflowService, type DFlowQuoteResponse } from "@/lib/services/dflow";
 
 export type TradeSide = "YES" | "NO";
@@ -136,11 +136,11 @@ export function useTrade() {
         const transaction = VersionedTransaction.deserialize(transactionBuffer);
 
         // Sign with wallet - PrivyAuthProvider handles the wallet API differences
-        let signedTransaction: VersionedTransaction;
+        let signedTransaction: VersionedTransaction | Transaction;
         try {
           signedTransaction = await activeWallet.signTransaction(
             transaction
-          ) as VersionedTransaction;
+          ) as VersionedTransaction | Transaction;
         } catch (signError) {
           console.error(`[Trade] Signing error:`, signError);
           throw new Error(
@@ -164,14 +164,19 @@ export function useTrade() {
 
         const connection = new Connection(SOLANA_RPC_URL, "confirmed");
 
-        // Serialize the signed transaction
+        // Serialize the signed transaction with defensive type checking
         let serializedTx: Uint8Array;
         try {
           if (signedTransaction instanceof VersionedTransaction) {
             serializedTx = signedTransaction.serialize();
+          } else if (signedTransaction instanceof Transaction) {
+            // Handle legacy transactions safely
+            serializedTx = signedTransaction.serialize({
+              requireAllSignatures: false,
+              verifySignatures: false,
+            });
           } else {
-            // Fallback for unknown transaction types
-            serializedTx = (signedTransaction as VersionedTransaction).serialize();
+            throw new Error("Signed transaction is neither VersionedTransaction nor Transaction");
           }
         } catch (serializeError) {
           console.error(`[Trade] Serialization error:`, serializeError);

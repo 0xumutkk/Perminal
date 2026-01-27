@@ -26,6 +26,7 @@ export interface AuthContextValue {
   activeWallet: WalletInfo | null;
   login: () => void;
   logout: () => Promise<void>;
+  fundWallet: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -52,13 +53,17 @@ export function FallbackAuthProvider({ children }: { children: ReactNode }) {
     );
     alert(
       "Wallet connection requires Privy configuration.\n\n" +
-        "Please set NEXT_PUBLIC_PRIVY_APP_ID in your .env.local file.\n" +
-        "Get your App ID from https://dashboard.privy.io"
+      "Please set NEXT_PUBLIC_PRIVY_APP_ID in your .env.local file.\n" +
+      "Get your App ID from https://dashboard.privy.io"
     );
   }, []);
 
   const logout = useCallback(async () => {
     console.log("No session to logout");
+  }, []);
+
+  const fundWallet = useCallback(async () => {
+    console.log("Privy not configured. Cannot fund wallet.");
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -70,8 +75,9 @@ export function FallbackAuthProvider({ children }: { children: ReactNode }) {
       activeWallet: null,
       login,
       logout,
+      fundWallet,
     }),
-    [login, logout]
+    [login, logout, fundWallet]
   );
 
   return (
@@ -97,6 +103,9 @@ export function useAuth(): AuthContextValue {
         console.warn("useAuth called outside AuthContext");
       },
       logout: async () => {
+        console.warn("useAuth called outside AuthContext");
+      },
+      fundWallet: async () => {
         console.warn("useAuth called outside AuthContext");
       },
     };

@@ -5,7 +5,8 @@
  */
 
 import { useMemo, useEffect, useState, useCallback, type ReactNode, useRef } from "react";
-import { usePrivy, useSolanaWallets, useWallets, useCreateWallet } from "@privy-io/react-auth";
+import { usePrivy, useWallets as useGlobalWallets, useCreateWallet as useGlobalCreateWallet } from "@privy-io/react-auth";
+import { useFundWallet, useWallets as useSolanaWallets, useCreateWallet as useSolanaCreateWallet } from "@privy-io/react-auth/solana";
 import { AuthContext, type AuthContextValue, type WalletInfo } from "@/hooks/useAuth";
 import type { VersionedTransaction } from "@solana/web3.js";
 
@@ -14,13 +15,13 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
 
   // Hook'lardan cüzdan listelerini al
   const { wallets: solanaWallets } = useSolanaWallets();
-  const { wallets: allWallets } = useWallets();
+  const { wallets: allWallets } = useGlobalWallets();
 
   // Cüzdan oluşturma fonksiyonları
-  // Öncelik: useSolanaWallets içindeki createWallet (eğer SDK destekliyorsa)
-  // Fallback: useCreateWallet (genel oluşturucu)
-  const { createWallet: createSolanaSpecific } = useSolanaWallets();
-  const { createWallet: createGeneric } = useCreateWallet();
+  // Öncelik: useSolanaCreateWallet içindeki createWallet (eğer SDK destekliyorsa)
+  // Fallback: useGlobalCreateWallet (genel oluşturucu)
+  const { createWallet: createSolanaSpecific } = useSolanaCreateWallet();
+  const { createWallet: createGeneric } = useGlobalCreateWallet();
   const createWallet = createSolanaSpecific || createGeneric;
 
   // State yönetimi
@@ -165,6 +166,24 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
     }
   }, [logout]);
 
+  // Fund wallet hook from Privy
+  const { fundWallet: privyFundWallet } = useFundWallet();
+
+  const handleFundWallet = useCallback(async () => {
+    if (!mappedWallets[0]?.address) {
+      console.error("[PrivyAuthProvider] No wallet address to fund");
+      return;
+    }
+
+    try {
+      await privyFundWallet({
+        address: mappedWallets[0].address,
+      });
+    } catch (error) {
+      console.error("[PrivyAuthProvider] Fund wallet error:", error);
+    }
+  }, [privyFundWallet, mappedWallets]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ready,
@@ -174,8 +193,9 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
       activeWallet: mappedWallets[0] || null,
       login,
       logout: handleLogout,
+      fundWallet: handleFundWallet,
     }),
-    [ready, authenticated, user, mappedWallets, login, handleLogout]
+    [ready, authenticated, user, mappedWallets, login, handleLogout, handleFundWallet]
   );
 
   return (
