@@ -10,9 +10,15 @@ declare module "next/image" {
   export interface ImageProps
     extends React.ImgHTMLAttributes<HTMLImageElement> {
     fill?: boolean;
+    priority?: boolean;
+    quality?: number | string;
+    placeholder?: 'blur' | 'empty' | 'data:image/...';
+    blurDataURL?: string;
+    sizes?: string;
+    loader?: (props: { src: string; width: number; quality?: number }) => string;
+    unoptimized?: boolean;
   }
 
   const Image: React.FC<ImageProps>;
   export default Image;
 }
-

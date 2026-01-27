@@ -2,6 +2,8 @@
  * Kalshi API Service
  * Documentation: https://docs.kalshi.com/sdks/overview
  * 
+ * @deprecated Use dFlow Prediction Markets API instead (app/api/markets/route.ts)
+ * This service does NOT provide SPL token mints required for trading.
  * Fetches prediction market data from Kalshi API
  * Note: Direct browser calls blocked by CORS - use Next.js API routes in production
  */
@@ -109,14 +111,18 @@ class KalshiService {
           yesPrice: kalshiMarket.yes_bid / 100,
           volume: kalshiMarket.volume,
           liquidityScore: this.calculateLiquidityScore(kalshiMarket),
-          resolveDate: kalshiMarket.close_time
+          resolveDate: kalshiMarket.close_time,
+          // DEPRECATED: Kalshi doesn't provide SPL token mints
+          // Use dFlow Prediction Markets API for trading
+          yesMint: "",
+          noMint: "",
         }));
 
       return { markets, cursor: response.cursor };
     } catch (error) {
-      // Fallback to mock data if API fails (CORS, network error, etc.)
-      const { mockMarkets } = await import("@/lib/mock-data");
-      return { markets: mockMarkets };
+      // Return empty array on error - use dFlow API instead for production
+      console.error("[Kalshi] API error (deprecated service):", error);
+      return { markets: [] };
     }
   }
 
@@ -134,7 +140,10 @@ class KalshiService {
         yesPrice: response.market.yes_bid / 100,
         volume: response.market.volume,
         liquidityScore: this.calculateLiquidityScore(response.market),
-        resolveDate: response.market.close_time
+        resolveDate: response.market.close_time,
+        // DEPRECATED: Kalshi doesn't provide SPL token mints
+        yesMint: "",
+        noMint: "",
       };
     } catch (error) {
       return null;

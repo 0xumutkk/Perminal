@@ -11,21 +11,21 @@ import type { VersionedTransaction } from "@solana/web3.js";
 
 export function PrivyAuthProvider({ children }: { children: ReactNode }) {
   const { ready, authenticated, login, logout, user } = usePrivy();
-  
+
   // Hook'lardan cüzdan listelerini al
   const { wallets: solanaWallets } = useSolanaWallets();
   const { wallets: allWallets } = useWallets();
-  
+
   // Cüzdan oluşturma fonksiyonları
   // Öncelik: useSolanaWallets içindeki createWallet (eğer SDK destekliyorsa)
   // Fallback: useCreateWallet (genel oluşturucu)
   const { createWallet: createSolanaSpecific } = useSolanaWallets();
   const { createWallet: createGeneric } = useCreateWallet();
   const createWallet = createSolanaSpecific || createGeneric;
-  
+
   // State yönetimi
   const [walletAddresses, setWalletAddresses] = useState<Map<string, string>>(new Map());
-  
+
   // Creating durumunu Ref ile takip ediyoruz (State'den daha hızlı ve güvenlidir)
   const isCreatingRef = useRef(false);
 
@@ -38,7 +38,7 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
 
     // Yoksa genel listeden filtrele
     if (allWallets && allWallets.length > 0) {
-      const solanaFiltered = allWallets.filter((w) => w.chainType === "solana");
+      const solanaFiltered = allWallets.filter((w) => 'chainType' in w && w.chainType === "solana");
       if (solanaFiltered.length > 0) {
         return solanaFiltered;
       }
@@ -56,9 +56,9 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
 
     const enforceSolanaWallet = async () => {
       // KONTROL 1: Aktif cüzdan listesinde Solana var mı?
-      const hasWalletInList = 
-        (solanaWallets && solanaWallets.length > 0) || 
-        (allWallets && allWallets.some(w => w.chainType === 'solana'));
+      const hasWalletInList =
+        (solanaWallets && solanaWallets.length > 0) ||
+        (allWallets && allWallets.some(w => 'chainType' in w && w.chainType === 'solana'));
 
       // KONTROL 2: Kullanıcı profilinde (linkedAccounts) Solana cüzdanı var mı?
       // (Cüzdan oluşturulmuş ama henüz listeye yüklenmemiş olabilir)
@@ -108,7 +108,7 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
 
     wallets.forEach((wallet, index) => {
       const walletId = `wallet-${index}`;
-      
+
       // Zaten adresimiz varsa geç
       if (walletAddresses.has(walletId)) return;
 
@@ -119,12 +119,12 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 2. Yöntem: getAddress() metodu (Asenkron deneme)
-      if (typeof wallet.getAddress === 'function') {
-        wallet.getAddress().then((addr) => {
+      if ('getAddress' in wallet && typeof (wallet as any).getAddress === 'function') {
+        (wallet as any).getAddress().then((addr: string) => {
           if (isMounted && addr) {
             setWalletAddresses(prev => new Map(prev).set(walletId, addr));
           }
-        }).catch(() => {}); // Sessiz hata
+        }).catch(() => { }); // Sessiz hata
       }
     });
 
@@ -137,7 +137,7 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
     return wallets
       .map((wallet, index) => {
         const walletId = `wallet-${index}`;
-        
+
         // Adresi bulmaya çalış (State'den veya direkt objeden)
         const address = wallet.address || walletAddresses.get(walletId) || "";
 

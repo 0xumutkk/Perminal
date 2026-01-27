@@ -4,6 +4,10 @@
  *
  * Handles prediction market trading on Solana via DFlow's unified Trade API
  * Supports both sync and async execution modes
+ * 
+ * TODO: Confirm the dFlow Prediction Markets metadata API endpoint with dFlow team.
+ * This service handles trading/swaps. For market listings with yesMint/noMint,
+ * see app/api/markets/route.ts which fetches from DFLOW_MARKETS_API_URL.
  */
 
 // Solana token mint addresses

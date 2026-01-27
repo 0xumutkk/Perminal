@@ -24,7 +24,7 @@ export function LandingHeader() {
             width={150}
             height={32}
             className="invert h-auto"
-            priority
+            priority={true}
           />
         </div>
 

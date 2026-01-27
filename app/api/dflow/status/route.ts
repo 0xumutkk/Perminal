@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 
 const DFLOW_API_URL = "https://quote-api.dflow.net";
+const DFLOW_API_KEY = process.env.DFLOW_API_KEY;
 
 export async function GET(request: Request) {
   try {
@@ -22,14 +23,21 @@ export async function GET(request: Request) {
 
     console.log(`[DFlow Status] Checking order: ${signature}`);
 
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+
+    // Attach DFlow API key if configured and not placeholder
+    if (DFLOW_API_KEY && DFLOW_API_KEY !== "YOUR_DFLOW_API_KEY") {
+      headers["x-api-key"] = DFLOW_API_KEY;
+    }
+
     const response = await fetch(
       `${DFLOW_API_URL}/order-status?signature=${signature}`,
       {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+        headers,
       }
     );
 

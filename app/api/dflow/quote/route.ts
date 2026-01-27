@@ -7,9 +7,10 @@
 import { NextResponse } from "next/server";
 
 const DFLOW_API_URL = "https://quote-api.dflow.net";
+const DFLOW_API_KEY = process.env.DFLOW_API_KEY;
 
-// Solana token mint addresses
-export const TOKENS = {
+// Solana token mint addresses (local constant, not exported)
+const TOKENS = {
   SOL: "So11111111111111111111111111111111111111112",
   USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 } as const;
@@ -43,12 +44,20 @@ export async function GET(request: Request) {
 
     console.log(`[DFlow Quote] Requesting: ${DFLOW_API_URL}/order?${dflowParams}`);
 
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    };
+
+    // Attach DFlow API key if configured and not the placeholder
+    // Per https://pond.dflow.net/quickstart/trade-tokens, API key is optional
+    if (DFLOW_API_KEY && DFLOW_API_KEY !== "YOUR_DFLOW_API_KEY") {
+      headers["x-api-key"] = DFLOW_API_KEY;
+    }
+
     const response = await fetch(`${DFLOW_API_URL}/order?${dflowParams}`, {
       method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
+      headers,
     });
 
     if (!response.ok) {

@@ -163,19 +163,15 @@ export function useTrade() {
         console.log(`[Trade] Sending transaction...`);
 
         const connection = new Connection(SOLANA_RPC_URL, "confirmed");
-        
+
         // Serialize the signed transaction
-        // VersionedTransaction always has serialize method
         let serializedTx: Uint8Array;
         try {
           if (signedTransaction instanceof VersionedTransaction) {
             serializedTx = signedTransaction.serialize();
-          } else if (typeof signedTransaction.serialize === 'function') {
-            serializedTx = signedTransaction.serialize();
-          } else if (signedTransaction instanceof Uint8Array) {
-            serializedTx = signedTransaction;
           } else {
-            throw new Error("Invalid signed transaction format");
+            // Fallback for unknown transaction types
+            serializedTx = (signedTransaction as VersionedTransaction).serialize();
           }
         } catch (serializeError) {
           console.error(`[Trade] Serialization error:`, serializeError);
@@ -183,7 +179,7 @@ export function useTrade() {
             `Failed to serialize transaction: ${serializeError instanceof Error ? serializeError.message : "Unknown error"}`
           );
         }
-          
+
         const signature = await connection.sendRawTransaction(
           serializedTx,
           {

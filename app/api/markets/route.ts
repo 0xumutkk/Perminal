@@ -1,73 +1,71 @@
 /**
- * Next.js API Route for Kalshi Markets
- * Proxies requests to Kalshi API to bypass CORS restrictions
+ * Next.js API Route for dFlow Prediction Markets
+ * Fetches tokenized Kalshi markets from dFlow API
+ * 
+ * dFlow tokenizes Kalshi markets on Solana, providing:
+ * - Market metadata (title, description, prices)
+ * - SPL Token mints (yesMint, noMint) for trading
  */
 
 import { NextResponse } from "next/server";
-import { Configuration, MarketApi, GetMarketsStatusEnum } from "kalshi-typescript";
-import type { Market as KalshiMarket } from "kalshi-typescript/dist/models";
+import type { MarketCategory } from "@/lib/mock-data";
 
-// Create Kalshi API configuration
-const config = new Configuration({
-  basePath: "https://api.elections.kalshi.com/trade-api/v2",
-});
+// dFlow Prediction Markets Metadata API (see https://pond.dflow.net/quickstart/user-prediction-positions)
+// Base URL for metadata: https://prediction-markets-api.dflow.net
+const DFLOW_MARKETS_API_BASE =
+  process.env.DFLOW_MARKETS_API_URL || "https://prediction-markets-api.dflow.net";
 
-const marketApi = new MarketApi(config);
-
-// Category mapping based on series ticker patterns
-function mapCategory(
-  seriesTicker: string,
-  eventTicker: string
-): "Crypto" | "Politics" | "Macro" | "Sports" | "Tech" | "Culture" {
-  const ticker = (seriesTicker + eventTicker).toLowerCase();
+// Category mapping based on market ticker patterns
+function mapCategory(ticker: string, title: string): MarketCategory {
+  const text = (ticker + title).toLowerCase();
 
   if (
-    ticker.includes("btc") ||
-    ticker.includes("eth") ||
-    ticker.includes("crypto") ||
-    ticker.includes("bitcoin")
+    text.includes("btc") ||
+    text.includes("eth") ||
+    text.includes("crypto") ||
+    text.includes("bitcoin")
   ) {
     return "Crypto";
   }
   if (
-    ticker.includes("pres") ||
-    ticker.includes("elect") ||
-    ticker.includes("senate") ||
-    ticker.includes("house") ||
-    ticker.includes("trump") ||
-    ticker.includes("biden") ||
-    ticker.includes("congress")
+    text.includes("pres") ||
+    text.includes("elect") ||
+    text.includes("senate") ||
+    text.includes("house") ||
+    text.includes("trump") ||
+    text.includes("biden") ||
+    text.includes("congress")
   ) {
     return "Politics";
   }
   if (
-    ticker.includes("fed") ||
-    ticker.includes("rate") ||
-    ticker.includes("cpi") ||
-    ticker.includes("gdp") ||
-    ticker.includes("jobs") ||
-    ticker.includes("inflation") ||
-    ticker.includes("econ")
+    text.includes("fed") ||
+    text.includes("rate") ||
+    text.includes("cpi") ||
+    text.includes("gdp") ||
+    text.includes("jobs") ||
+    text.includes("inflation") ||
+    text.includes("econ")
   ) {
     return "Macro";
   }
   if (
-    ticker.includes("nfl") ||
-    ticker.includes("nba") ||
-    ticker.includes("mlb") ||
-    ticker.includes("sport") ||
-    ticker.includes("game") ||
-    ticker.includes("super")
+    text.includes("nfl") ||
+    text.includes("nba") ||
+    text.includes("mlb") ||
+    text.includes("sport") ||
+    text.includes("game") ||
+    text.includes("super")
   ) {
     return "Sports";
   }
   if (
-    ticker.includes("tech") ||
-    ticker.includes("ai") ||
-    ticker.includes("apple") ||
-    ticker.includes("google") ||
-    ticker.includes("meta") ||
-    ticker.includes("microsoft")
+    text.includes("tech") ||
+    text.includes("ai") ||
+    text.includes("apple") ||
+    text.includes("google") ||
+    text.includes("meta") ||
+    text.includes("microsoft")
   ) {
     return "Tech";
   }
@@ -75,106 +73,119 @@ function mapCategory(
   return "Culture";
 }
 
-// Format volume for display
-function formatVolume(volume: number): string {
-  if (volume >= 1_000_000) {
-    return `$${(volume / 1_000_000).toFixed(1)}M`;
-  }
-  if (volume >= 1_000) {
-    return `$${(volume / 1_000).toFixed(1)}K`;
-  }
-  return `$${volume}`;
+// dFlow market response type (adjust based on actual API response)
+interface DFlowMarket {
+  ticker: string;
+  title: string;
+  subtitle?: string;
+  yes_mint: string; // SPL Token mint for YES outcome
+  no_mint: string; // SPL Token mint for NO outcome
+  last_price?: number;
+  yes_price?: number;
+  volume?: number;
+  liquidity_score?: number;
+  close_time?: string;
+  status?: string;
 }
 
-// Transform Kalshi market to our Market type
-function transformMarket(kalshiMarket: KalshiMarket) {
-  // Parse dollar values (they come as strings like "0.3700")
-  const yesBid = parseFloat(kalshiMarket.yes_bid_dollars || "0");
-  const yesAsk = parseFloat(kalshiMarket.yes_ask_dollars || "0");
-  const noBid = parseFloat(kalshiMarket.no_bid_dollars || "0");
-  const noAsk = parseFloat(kalshiMarket.no_ask_dollars || "0");
+interface DFlowMarketsResponse {
+  markets: DFlowMarket[];
+  cursor?: string;
+}
 
-  // Use midpoint price or last price
-  const yesPrice =
-    yesBid > 0 && yesAsk > 0
-      ? (yesBid + yesAsk) / 2
-      : parseFloat(kalshiMarket.last_price_dollars || "0.5");
-
-  // Calculate liquidity score (0-10)
-  const spread = yesAsk - yesBid;
-  const spreadScore = Math.max(0, 10 - spread * 20);
-  const volumeScore = Math.min(10, Math.log10(kalshiMarket.volume + 1) * 2);
-  const liquidityScore = (spreadScore + volumeScore) / 2;
+// Transform dFlow market to our Market type
+function transformMarket(dflowMarket: DFlowMarket) {
+  const yesPrice = dflowMarket.yes_price ?? dflowMarket.last_price ?? 0.5;
 
   return {
-    id: kalshiMarket.ticker,
-    title: kalshiMarket.title || kalshiMarket.yes_sub_title || kalshiMarket.ticker,
-    description: kalshiMarket.subtitle || kalshiMarket.rules_primary || "",
-    category: mapCategory(kalshiMarket.event_ticker || "", kalshiMarket.ticker),
-    yesPrice: Math.round(yesPrice * 100) / 100, // 0.00 to 1.00
-    volume: kalshiMarket.volume,
-    volumeFormatted: formatVolume(kalshiMarket.volume),
-    liquidityScore: Math.round(liquidityScore * 10) / 10,
-    resolveDate: kalshiMarket.close_time || kalshiMarket.expected_expiration_time || "",
-    status: kalshiMarket.status,
-    eventTicker: kalshiMarket.event_ticker,
-    // Additional fields
-    yesBid,
-    yesAsk,
-    noBid,
-    noAsk,
-    openInterest: kalshiMarket.open_interest,
-    volume24h: kalshiMarket.volume_24h,
+    id: dflowMarket.ticker,
+    title: dflowMarket.title,
+    description: dflowMarket.subtitle || "",
+    category: mapCategory(dflowMarket.ticker, dflowMarket.title),
+    yesPrice: Math.round(yesPrice * 100) / 100,
+    volume: dflowMarket.volume || 0,
+    liquidityScore: dflowMarket.liquidity_score || 5.0,
+    resolveDate: dflowMarket.close_time || "",
+    // Critical: SPL Token mints for trading
+    yesMint: dflowMarket.yes_mint,
+    noMint: dflowMarket.no_mint,
   };
 }
 
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get("limit") || "50");
-    const cursor = searchParams.get("cursor") || undefined;
-    const status = searchParams.get("status") as GetMarketsStatusEnum | undefined;
+  const { searchParams } = new URL(request.url);
+  const limit = parseInt(searchParams.get("limit") || "50");
 
-    // Fetch markets from Kalshi
-    const response = await marketApi.getMarkets(
-      limit,
-      cursor,
-      undefined, // eventTicker
-      undefined, // seriesTicker
-      undefined, // minCreatedTs
-      undefined, // maxCreatedTs
-      undefined, // maxCloseTs
-      undefined, // minCloseTs
-      undefined, // minSettledTs
-      undefined, // maxSettledTs
-      status || GetMarketsStatusEnum.Open,
-      undefined, // tickers
-      "exclude" // mveFilter - exclude multivariate events for simpler display
+  try {
+    // Build request headers
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+    };
+
+    // Add API key only if you actually have a real key configured.
+    // Public dFlow setup works without auth; a bad/placeholder key will cause 4xx errors.
+    if (
+      process.env.DFLOW_API_KEY &&
+      process.env.DFLOW_API_KEY !== "YOUR_DFLOW_API_KEY"
+    ) {
+      headers["Authorization"] = `Bearer ${process.env.DFLOW_API_KEY}`;
+    }
+
+    console.log("[Markets API] Fetching from dFlow:", DFLOW_MARKETS_API_BASE);
+
+    // Fetch tokenized markets from dFlow "Get Markets" endpoint
+    // GET /api/v1/markets?limit=...
+    const response = await fetch(
+      `${DFLOW_MARKETS_API_BASE}/api/v1/markets?limit=${limit}`,
+      {
+      headers,
+      // Disable caching for fresh data
+      cache: "no-store",
+      }
     );
 
-    const kalshiMarkets = response.data.markets || [];
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[Markets API] dFlow API error:", response.status, errorText);
 
-    // Transform markets to our format
-    const markets = kalshiMarkets
-      .filter((m) => m.status === "active" || m.status === "inactive")
+      return NextResponse.json(
+        {
+          error: `dFlow API error: ${response.status}`,
+          message: "Failed to fetch prediction markets from dFlow. Please check your API configuration.",
+          details: errorText,
+        },
+        { status: response.status }
+      );
+    }
+
+    const data: DFlowMarketsResponse = await response.json();
+    const dflowMarkets = data.markets || [];
+
+    console.log("[Markets API] Received", dflowMarkets.length, "markets from dFlow");
+
+    // Transform and filter markets (only those with valid mints)
+    const markets = dflowMarkets
+      .filter((m) => m.yes_mint && m.no_mint) // Only include markets with valid token mints
       .map(transformMarket)
       .sort((a, b) => b.volume - a.volume); // Sort by volume descending
 
     return NextResponse.json({
       markets,
-      cursor: response.data.cursor,
+      cursor: data.cursor,
       total: markets.length,
     });
   } catch (error) {
-    console.error("Kalshi API error:", error);
+    console.error("[Markets API] Error fetching from dFlow:", error);
 
-    // Return fallback mock data on error
-    const { mockMarkets } = await import("@/lib/mock-data");
-    return NextResponse.json({
-      markets: mockMarkets,
-      cursor: undefined,
-      total: mockMarkets.length,
-      fallback: true,
-    });
+    // Return error - NO MOCK FALLBACK in production mode
+    return NextResponse.json(
+      {
+        error: "Failed to fetch markets",
+        message: error instanceof Error ? error.message : "Unknown error",
+        hint:
+          "Ensure DFLOW_MARKETS_API_URL (default https://prediction-markets-api.dflow.net) and DFLOW_API_KEY are configured in .env.local",
+      },
+      { status: 500 }
+    );
   }
 }

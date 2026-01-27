@@ -42,8 +42,7 @@ export default function PrivyWrapper({ children }: PrivyWrapperProps) {
         // Per https://docs.privy.io/guide/react/wallets/embedded/creation
         embeddedWallets: {
 
-          // Disable Ethereum wallet creation entirely (Privy docs; SDK types omit chain-specific keys)
-          // @ts-expect-error - ethereum/solana createOnLogin supported per docs
+          // Disable Ethereum wallet creation entirely (Solana-only mode)
           createOnLogin: "off",
 
           // Ensure wallet is ready before using

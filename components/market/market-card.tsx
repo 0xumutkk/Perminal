@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,14 +8,10 @@ import { Button } from "@/components/ui/button";
 import { type Market } from "@/lib/mock-data";
 import { useTrade, type TradeSide } from "@/hooks/useTrade";
 import { useAuth } from "@/hooks/useAuth";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 
 export interface MarketCardProps {
-  market: Market & {
-    // Extended fields from Kalshi API
-    yesMint?: string;
-    noMint?: string;
-  };
+  market: Market;
 }
 
 export function MarketCard({ market }: MarketCardProps) {
@@ -30,19 +26,36 @@ export function MarketCard({ market }: MarketCardProps) {
   // Default trade amount (can be made configurable via modal later)
   const DEFAULT_AMOUNT_USD = 10;
 
+  // Check if trading is available (requires valid SPL token mints)
+  const isTradingAvailable = useMemo(() => {
+    return Boolean(market.yesMint && market.noMint);
+  }, [market.yesMint, market.noMint]);
+
   const handleBuy = useCallback(
     async (side: TradeSide) => {
+      // Ensure we have valid mints before trading
+      if (!market.yesMint || !market.noMint) {
+        console.error("[MarketCard] Cannot trade: missing token mints", {
+          marketId: market.id,
+          yesMint: market.yesMint,
+          noMint: market.noMint,
+        });
+        return;
+      }
+
       reset();
       setPendingSide(side);
 
-      // For demo: use a placeholder mint if not available
-      // In production, these would come from DFlow's prediction market metadata API
-      const outputMint =
-        side === "YES"
-          ? market.yesMint || "So11111111111111111111111111111111111111112" // SOL as placeholder
-          : market.noMint || "So11111111111111111111111111111111111111112";
+      // Use the REAL SPL token mints from dFlow
+      const outputMint = side === "YES" ? market.yesMint : market.noMint;
 
       try {
+        console.log(`[MarketCard] Initiating ${side} trade:`, {
+          marketId: market.id,
+          outputMint,
+          amountUsdc: DEFAULT_AMOUNT_USD,
+        });
+
         await buy({
           marketId: market.id,
           outputMint,
@@ -70,10 +83,10 @@ export function MarketCard({ market }: MarketCardProps) {
   // Format date
   const formattedResolveDate = market.resolveDate
     ? new Date(market.resolveDate).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
     : "TBD";
 
   const isYesLoading = isLoading && pendingSide === "YES";
@@ -150,6 +163,14 @@ export function MarketCard({ market }: MarketCardProps) {
         </div>
       )}
 
+      {/* Trading Unavailable Warning */}
+      {!isTradingAvailable && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
+          <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+          <span>Trading unavailable for this market</span>
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="mt-1 grid grid-cols-2 gap-2">
         <Button
@@ -157,7 +178,7 @@ export function MarketCard({ market }: MarketCardProps) {
           size="lg"
           className="h-9 bg-slate-950/40 text-xs hover:shadow-[0_0_18px_rgba(34,197,94,0.55)] disabled:opacity-50"
           onClick={isWalletConnected ? handleBuyYes : login}
-          disabled={isLoading}
+          disabled={isLoading || !isTradingAvailable}
         >
           {isYesLoading ? (
             <>
@@ -166,6 +187,8 @@ export function MarketCard({ market }: MarketCardProps) {
             </>
           ) : !isWalletConnected ? (
             "Connect Wallet"
+          ) : !isTradingAvailable ? (
+            "Unavailable"
           ) : (
             `Buy YES ${yesPercent}¢`
           )}
@@ -175,7 +198,7 @@ export function MarketCard({ market }: MarketCardProps) {
           size="lg"
           className="h-9 bg-slate-950/40 text-xs hover:shadow-[0_0_18px_rgba(248,113,113,0.55)] disabled:opacity-50"
           onClick={isWalletConnected ? handleBuyNo : login}
-          disabled={isLoading}
+          disabled={isLoading || !isTradingAvailable}
         >
           {isNoLoading ? (
             <>
@@ -184,6 +207,8 @@ export function MarketCard({ market }: MarketCardProps) {
             </>
           ) : !isWalletConnected ? (
             "Connect Wallet"
+          ) : !isTradingAvailable ? (
+            "Unavailable"
           ) : (
             `Buy NO ${noPercent}¢`
           )}
@@ -191,7 +216,7 @@ export function MarketCard({ market }: MarketCardProps) {
       </div>
 
       {/* Wallet not connected hint */}
-      {!isWalletConnected && (
+      {!isWalletConnected && isTradingAvailable && (
         <p className="text-center text-[10px] text-slate-600">
           Connect your wallet to trade on this market
         </p>
