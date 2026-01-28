@@ -24,11 +24,10 @@ export default function MarketsPage() {
         </div>
         <div className="hidden items-center gap-2 text-[11px] text-slate-500 sm:flex">
           <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              isFallback
+            className={`h-1.5 w-1.5 rounded-full ${isFallback
                 ? "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.8)]"
                 : "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]"
-            }`}
+              }`}
           />
           <span>{isFallback ? "Demo mode" : "Solana mainnet · Live"}</span>
         </div>

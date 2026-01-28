@@ -17,7 +17,9 @@ const buttonVariants = cva(
         neonYes:
           "border border-emerald-500/70 text-emerald-400 hover:bg-emerald-500 hover:text-slate-950",
         neonNo:
-          "border border-rose-500/70 text-rose-400 hover:bg-rose-500 hover:text-slate-950"
+          "border border-rose-500/70 text-rose-400 hover:bg-rose-500 hover:text-slate-950",
+        secondary:
+          "bg-slate-800 text-slate-100 hover:bg-slate-800/80 border border-slate-700"
       },
       size: {
         default: "h-9 px-4 py-2",

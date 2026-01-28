@@ -4,10 +4,13 @@ import { useState, useEffect, useCallback } from "react";
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { useWallets } from "@/hooks/useAuth";
 
-// Solana RPC endpoint
-const SOLANA_RPC_URL =
-    process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-    "https://api.mainnet-beta.solana.com";
+// Solana RPC endpoint helper
+const getRpcUrl = () => {
+    if (typeof window !== "undefined") {
+        return `${window.location.origin}/api/rpc`;
+    }
+    return ""; // Fallback for SSR, though hook runs on client
+};
 
 // USDC Token Mint on Solana Mainnet
 const USDC_MINT = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
@@ -40,7 +43,9 @@ export function useWalletBalance() {
         setState((s) => ({ ...s, isLoading: true, error: null }));
 
         try {
-            const connection = new Connection(SOLANA_RPC_URL, "confirmed");
+            const rpcUrl = getRpcUrl();
+            if (!rpcUrl) return;
+            const connection = new Connection(rpcUrl, "confirmed");
             const publicKey = new PublicKey(activeWallet.address);
 
             // Fetch SOL balance

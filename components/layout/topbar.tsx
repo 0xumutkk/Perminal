@@ -16,18 +16,21 @@ import {
   BarChart3,
   Radio,
   ArrowLeftRight,
-  Loader2
+  Loader2,
+  Compass
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth, useWallets } from "@/hooks/useAuth";
 import { useWalletBalance } from "@/hooks/useWalletBalance";
+import { useProfile } from "@/hooks/useProfile";
 import { useRouter } from "next/navigation";
 import { useState, useCallback } from "react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/markets", label: "Markets", icon: TrendingUp },
+  { href: "/explore", label: "Explore", icon: Compass },
   { href: "/portfolio", label: "Portfolio", icon: BarChart3 },
   { href: "/leaderboard", label: "Leaderboard", icon: Radio }
 ];
@@ -36,6 +39,7 @@ export function Topbar() {
   const { ready, authenticated, login, logout, user, fundWallet } = useAuth();
   const { activeWallet } = useWallets();
   const { formattedUsdc, isLoading: isBalanceLoading } = useWalletBalance();
+  const { profile } = useProfile();
   const pathname = usePathname();
   const router = useRouter();
   const [copied, setCopied] = useState(false);
@@ -132,7 +136,7 @@ export function Topbar() {
   // Loading state
   if (!ready) {
     return (
-      <header className="flex h-16 items-center justify-between border-b border-slate-900/80 bg-[#020617]/95 px-6 backdrop-blur">
+      <header className="sticky top-0 z-50 w-full flex h-16 items-center justify-between border-b border-slate-900/80 bg-[#020617]/95 px-6 backdrop-blur">
         <div className="flex items-center gap-6">
           <Image
             src="/logo.svg"
@@ -149,7 +153,7 @@ export function Topbar() {
   }
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-slate-900/80 bg-[#020617]/95 px-6 backdrop-blur">
+    <header className="sticky top-0 z-50 w-full flex h-16 items-center justify-between border-b border-slate-900/80 bg-[#020617]/95 px-6 backdrop-blur">
       {/* Left side: Logo + Navigation */}
       <div className="flex items-center gap-8">
         {/* Logo */}
@@ -277,6 +281,14 @@ export function Topbar() {
                   )}
 
                   {/* Logout Button */}
+                  <Link
+                    href={`/profile/${profile?.username || ""}`}
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-400 hover:bg-slate-900/50 hover:text-slate-100 transition-colors"
+                  >
+                    <User className="h-4 w-4" />
+                    Profile
+                  </Link>
+
                   <button
                     onClick={(e) => {
                       e.preventDefault();
