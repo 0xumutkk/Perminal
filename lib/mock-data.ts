@@ -19,6 +19,17 @@ export interface Market {
   // SPL Token mints for trading on Solana via dFlow
   yesMint: string; // YES outcome token mint address
   noMint: string; // NO outcome token mint address
+  yesLabel?: string; // Dynamic label for YES outcome (e.g. "Trump")
+  noLabel?: string; // Dynamic label for NO outcome (e.g. "Harris")
+  // Optional dFlow-specific fields
+  ticker?: string;
+  eventTicker?: string;
+  status?: string;
+  yesAsk?: string;
+  yesBid?: string;
+  noAsk?: string;
+  noBid?: string;
+  openInterest?: number;
 }
 
 // All market categories for filtering

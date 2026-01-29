@@ -2,34 +2,52 @@
 
 import { MarketCard } from "@/components/market/market-card";
 import { useMarkets } from "@/hooks/useMarkets";
-import type { Market } from "@/lib/mock-data";
+import { MARKET_CATEGORIES, type Market } from "@/lib/mock-data";
+import { useState } from "react";
 
 export default function MarketsPage() {
-  const { data, isLoading } = useMarkets({ limit: 50 });
+  const [activeTab, setActiveTab] = useState("Trending");
+  const [activeCategory, setActiveCategory] = useState("All");
+
+  const { data, isLoading } = useMarkets({
+    limit: 50,
+    category: activeCategory === "All" ? undefined : activeCategory
+  });
+
   const marketsList: Market[] = data?.markets ?? [];
   const isFallback = data?.fallback;
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight text-slate-50">
-            Trending Markets
-          </h1>
-          <p className="text-xs text-slate-500">
-            {isFallback
-              ? "Demo markets (API unavailable)"
-              : `${marketsList.length} live markets from Kalshi`}
-          </p>
+      <div className="-mt-4 sticky top-0 z-10 flex flex-col border-b border-slate-800/50 bg-slate-950/80 pt-4 backdrop-blur-md">
+        {/* Main Tabs */}
+        <div className="flex items-center gap-6 pb-3">
+          {["Trending", "For You", "Activity"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`text-sm font-medium transition-colors hover:text-emerald-400 ${activeTab === tab ? "text-emerald-500" : "text-slate-500"
+                }`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
-        <div className="hidden items-center gap-2 text-[11px] text-slate-500 sm:flex">
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${isFallback
-                ? "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.8)]"
-                : "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]"
-              }`}
-          />
-          <span>{isFallback ? "Demo mode" : "Solana mainnet · Live"}</span>
+
+        {/* Categories */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-3 no-scrollbar">
+          {["All", ...MARKET_CATEGORIES].map((category) => (
+            <button
+              key={category}
+              onClick={() => setActiveCategory(category)}
+              className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors border ${activeCategory === category
+                ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-400"
+                : "border-slate-800 bg-slate-900/50 text-slate-400 hover:border-slate-700 hover:text-slate-200"
+                }`}
+            >
+              {category}
+            </button>
+          ))}
         </div>
       </div>
 

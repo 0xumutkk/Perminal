@@ -6,7 +6,7 @@
 
 import { useMemo, useEffect, useState, useCallback, type ReactNode, useRef } from "react";
 import { usePrivy, useWallets as useGlobalWallets, useCreateWallet as useGlobalCreateWallet } from "@privy-io/react-auth";
-import { useFundWallet, useWallets as useSolanaWallets, useCreateWallet as useSolanaCreateWallet } from "@privy-io/react-auth/solana";
+import { useFundWallet, useWallets as useSolanaWallets, useCreateWallet as useSolanaCreateWallet, useSignAndSendTransaction } from "@privy-io/react-auth/solana";
 import { AuthContext, type AuthContextValue, type WalletInfo } from "@/hooks/useAuth";
 import type { VersionedTransaction } from "@solana/web3.js";
 
@@ -144,7 +144,7 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
 
         if (!address) return null;
 
-        // Transaction İmzalama Wrapper'ı
+        // Transaction İmzalama Wrapper'ı (sadece imza)
         const signTransaction = async (tx: unknown): Promise<VersionedTransaction> => {
           if ('signTransaction' in wallet && typeof (wallet as any).signTransaction === "function") {
             return await (wallet as any).signTransaction(tx as VersionedTransaction);
@@ -152,7 +152,16 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
           throw new Error("Wallet does not support transaction signing");
         };
 
-        return { address, signTransaction } as WalletInfo;
+        // Sign ve Send Wrapper'ı (Privy'nin native RPC kullanması için)
+        const signAndSendTransaction = async (tx: unknown): Promise<{ signature: string }> => {
+          if ('signAndSendTransaction' in wallet && typeof (wallet as any).signAndSendTransaction === "function") {
+            const result = await (wallet as any).signAndSendTransaction(tx as VersionedTransaction);
+            return { signature: result.signature || result };
+          }
+          throw new Error("Wallet does not support signAndSendTransaction");
+        };
+
+        return { address, signTransaction, signAndSendTransaction } as WalletInfo;
       })
       .filter((w): w is WalletInfo => w !== null);
   }, [wallets, walletAddresses]);
@@ -184,6 +193,33 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
     }
   }, [privyFundWallet, mappedWallets]);
 
+  // Sign and send transaction hook from Privy
+  const { signAndSendTransaction: privySignAndSend } = useSignAndSendTransaction();
+
+  const handleSignAndSendTransaction = useCallback(async (transaction: Uint8Array): Promise<{ signature: string }> => {
+    const wallet = wallets[0];
+    if (!wallet) {
+      throw new Error("No wallet connected");
+    }
+
+    console.log("[PrivyAuthProvider] Signing and sending transaction...");
+
+    const result = await privySignAndSend({
+      transaction,
+      wallet: wallet as any, // Privy expects their wallet type
+    });
+
+    // Convert Uint8Array signature to base58 string
+    const signatureBytes = result.signature;
+    const signatureStr = typeof signatureBytes === 'string'
+      ? signatureBytes
+      : Buffer.from(signatureBytes).toString('base64');
+
+    console.log("[PrivyAuthProvider] Transaction sent:", signatureStr);
+
+    return { signature: signatureStr };
+  }, [privySignAndSend, wallets]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ready,
@@ -194,8 +230,9 @@ export function PrivyAuthProvider({ children }: { children: ReactNode }) {
       login,
       logout: handleLogout,
       fundWallet: handleFundWallet,
+      signAndSendTransaction: handleSignAndSendTransaction,
     }),
-    [ready, authenticated, user, mappedWallets, login, handleLogout, handleFundWallet]
+    [ready, authenticated, user, mappedWallets, login, handleLogout, handleFundWallet, handleSignAndSendTransaction]
   );
 
   return (

@@ -27,6 +27,7 @@ export interface AuthContextValue {
   login: () => void;
   logout: () => Promise<void>;
   fundWallet: () => Promise<void>;
+  signAndSendTransaction: (tx: Uint8Array) => Promise<{ signature: string }>;
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null);
@@ -66,6 +67,10 @@ export function FallbackAuthProvider({ children }: { children: ReactNode }) {
     console.log("Privy not configured. Cannot fund wallet.");
   }, []);
 
+  const signAndSendTransaction = useCallback(async () => {
+    throw new Error("Privy not configured. Cannot send transaction.");
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ready: true,
@@ -76,8 +81,9 @@ export function FallbackAuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       fundWallet,
+      signAndSendTransaction,
     }),
-    [login, logout, fundWallet]
+    [login, logout, fundWallet, signAndSendTransaction]
   );
 
   return (
@@ -107,6 +113,9 @@ export function useAuth(): AuthContextValue {
       },
       fundWallet: async () => {
         console.warn("useAuth called outside AuthContext");
+      },
+      signAndSendTransaction: async () => {
+        throw new Error("useAuth called outside AuthContext");
       },
     };
   }

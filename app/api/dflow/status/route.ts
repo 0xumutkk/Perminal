@@ -6,7 +6,7 @@
 
 import { NextResponse } from "next/server";
 
-const DFLOW_API_URL = "https://quote-api.dflow.net";
+const DFLOW_API_URL = "https://dev-quote-api.dflow.net";
 const DFLOW_API_KEY = process.env.DFLOW_API_KEY;
 
 export async function GET(request: Request) {

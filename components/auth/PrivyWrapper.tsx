@@ -18,6 +18,10 @@ interface PrivyWrapperProps {
 // Solana wallet connectors for external wallets (Phantom, Solflare, etc.)
 const solanaConnectors = toSolanaWalletConnectors();
 
+// Solana RPC URLs - use environment variables or fall back to public endpoints
+const SOLANA_RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const SOLANA_WS_URL = process.env.NEXT_PUBLIC_SOLANA_WS_URL || "wss://api.mainnet-beta.solana.com";
+
 export default function PrivyWrapper({ children }: PrivyWrapperProps) {
   const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID!;
 
@@ -38,10 +42,7 @@ export default function PrivyWrapper({ children }: PrivyWrapperProps) {
         },
 
         // Embedded wallet configuration - SOLANA ONLY
-        // Explicitly disable EVM and enable Solana for new users
-        // Per https://docs.privy.io/guide/react/wallets/embedded/creation
         embeddedWallets: {
-          // Disable Ethereum wallet creation entirely (Solana-only mode)
           ethereum: {
             createOnLogin: "off",
           },
@@ -50,7 +51,15 @@ export default function PrivyWrapper({ children }: PrivyWrapperProps) {
           },
         },
 
-
+        // Solana RPC configuration - REQUIRED for signAndSendTransaction
+        solana: {
+          rpcs: {
+            "solana:mainnet": {
+              rpc: createSolanaRpc(SOLANA_RPC_URL),
+              rpcSubscriptions: createSolanaRpcSubscriptions(SOLANA_WS_URL),
+            },
+          },
+        },
 
         // External Solana wallets (Phantom, Solflare, etc.)
         externalWallets: {
@@ -70,3 +79,5 @@ export default function PrivyWrapper({ children }: PrivyWrapperProps) {
     </PrivyProvider>
   );
 }
+
+

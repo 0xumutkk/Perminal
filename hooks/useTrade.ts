@@ -40,13 +40,14 @@ const SOLANA_RPC_URL =
   "https://api.mainnet-beta.solana.com";
 
 export function useTrade() {
-  const { ready, authenticated } = useAuth();
+  const { ready, authenticated, signAndSendTransaction } = useAuth();
   const { activeWallet } = useWallets();
   const [state, setState] = useState<TradeState>(initialState);
 
   const reset = useCallback(() => {
     setState(initialState);
   }, []);
+
 
   /**
    * Get a quote without executing
@@ -129,29 +130,20 @@ export function useTrade() {
           priceImpact: quote.priceImpactPct,
         });
 
-        // Step 2: Deserialize and sign transaction
-        console.log(`[Trade] Signing transaction...`);
+        // Step 2: Deserialize transaction
+        console.log(`[Trade] Preparing transaction...`);
 
         const transactionBuffer = Buffer.from(quote.transaction, "base64");
         const transaction = VersionedTransaction.deserialize(transactionBuffer);
 
-        // Sign with wallet - PrivyAuthProvider handles the wallet API differences
-        let signedTransaction: VersionedTransaction | Transaction;
-        try {
-          signedTransaction = await activeWallet.signTransaction(
-            transaction
-          ) as VersionedTransaction | Transaction;
-        } catch (signError) {
-          console.error(`[Trade] Signing error:`, signError);
-          throw new Error(
-            `Failed to sign transaction: ${signError instanceof Error ? signError.message : "Unknown error"}`
-          );
-        }
+        // Serialize to Uint8Array for Privy's signAndSendTransaction
+        const transactionBytes = transaction.serialize();
 
-        // Validate signed transaction
-        if (!signedTransaction) {
-          throw new Error("Transaction signing returned null or undefined");
-        }
+        // Step 3: Sign and send transaction using Privy hook (from context)
+        console.log(`[Trade] Signing and sending via Privy...`);
+
+        const result = await signAndSendTransaction(transactionBytes);
+        const signature = result.signature;
 
         setState((s) => ({
           ...s,
@@ -159,46 +151,12 @@ export function useTrade() {
           isConfirming: true,
         }));
 
-        // Step 3: Send transaction to Solana
-        console.log(`[Trade] Sending transaction...`);
-
-        const connection = new Connection(SOLANA_RPC_URL, "confirmed");
-
-        // Serialize the signed transaction with defensive type checking
-        let serializedTx: Uint8Array;
-        try {
-          if (signedTransaction instanceof VersionedTransaction) {
-            serializedTx = signedTransaction.serialize();
-          } else if (signedTransaction instanceof Transaction) {
-            // Handle legacy transactions safely
-            serializedTx = signedTransaction.serialize({
-              requireAllSignatures: false,
-              verifySignatures: false,
-            });
-          } else {
-            throw new Error("Signed transaction is neither VersionedTransaction nor Transaction");
-          }
-        } catch (serializeError) {
-          console.error(`[Trade] Serialization error:`, serializeError);
-          throw new Error(
-            `Failed to serialize transaction: ${serializeError instanceof Error ? serializeError.message : "Unknown error"}`
-          );
-        }
-
-        const signature = await connection.sendRawTransaction(
-          serializedTx,
-          {
-            skipPreflight: false,
-            maxRetries: 3,
-          }
-        );
-
         console.log(`[Trade] Transaction sent: ${signature}`);
 
         // Step 4: Handle based on execution mode
         if (quote.executionMode === "async") {
-          // For async, poll for completion
-          console.log(`[Trade] Async mode - waiting for completion...`);
+          // For async, poll dFlow for completion
+          console.log(`[Trade] Async mode - waiting for dFlow completion...`);
 
           const status = await dflowService.waitForCompletion(signature);
 
@@ -208,15 +166,17 @@ export function useTrade() {
 
           console.log(`[Trade] Async order completed:`, status);
         } else {
-          // For sync, confirm transaction
+          // For sync mode, Privy's signAndSendTransaction already handles submission
+          // Just need to confirm the transaction landed
           console.log(`[Trade] Sync mode - confirming transaction...`);
 
+          const connection = new Connection(SOLANA_RPC_URL, "confirmed");
           const latestBlockhash = await connection.getLatestBlockhash();
           const confirmation = await connection.confirmTransaction(
             {
               signature,
               blockhash: latestBlockhash.blockhash,
-              lastValidBlockHeight: quote.lastValidBlockHeight,
+              lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
             },
             "confirmed"
           );
@@ -244,10 +204,48 @@ export function useTrade() {
       } catch (error) {
         console.error(`[Trade] Error:`, error);
 
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Trade failed. Please try again.";
+        // Parse error for user-friendly messages
+        const rawMessage =
+          error instanceof Error ? error.message : String(error);
+
+        let message = "Trade failed. Please try again.";
+
+        // Insufficient balance errors
+        if (
+          rawMessage.toLowerCase().includes("insufficient") ||
+          rawMessage.toLowerCase().includes("not enough") ||
+          rawMessage.toLowerCase().includes("balance") ||
+          rawMessage.includes("0x1") // Solana insufficient funds error code
+        ) {
+          message = "Insufficient USDC balance. Please add funds to your wallet.";
+        }
+        // User rejected/cancelled
+        else if (
+          rawMessage.toLowerCase().includes("user rejected") ||
+          rawMessage.toLowerCase().includes("user denied") ||
+          rawMessage.toLowerCase().includes("cancelled") ||
+          rawMessage.toLowerCase().includes("user exited")
+        ) {
+          message = "Transaction cancelled.";
+        }
+        // Wallet connection issues
+        else if (
+          rawMessage.toLowerCase().includes("connect") ||
+          rawMessage.toLowerCase().includes("wallet")
+        ) {
+          message = "Wallet connection failed. Please try again.";
+        }
+        // Network/timeout errors
+        else if (
+          rawMessage.toLowerCase().includes("timeout") ||
+          rawMessage.toLowerCase().includes("network")
+        ) {
+          message = "Network error. Please check your connection.";
+        }
+        // Slippage errors
+        else if (rawMessage.toLowerCase().includes("slippage")) {
+          message = "Price moved too much. Please try again.";
+        }
 
         setState({
           ...initialState,
