@@ -4,7 +4,8 @@ import Image from "next/image";
 import { useState } from "react";
 import { FollowButton } from "./FollowButton";
 import { useAuth } from "@/hooks/useAuth";
-import { Calendar, MapPin, Link as LinkIcon, Users } from "lucide-react";
+import { useWalletBalance } from "@/hooks/useWalletBalance";
+import { Calendar, MapPin, Link as LinkIcon, Users, Wallet, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/lib/database.types";
 
@@ -17,6 +18,9 @@ interface ProfileHeaderProps {
 export function ProfileHeader({ profile, isOwnProfile = false, onEditProfile }: ProfileHeaderProps) {
     const [imageError, setImageError] = useState(false);
     const { authenticated } = useAuth();
+    const { solBalance, usdcBalance, solPrice, formattedSol, formattedUsdc } = useWalletBalance();
+
+    const solValueUsd = solBalance * solPrice;
 
     const joinDate = profile.created_at
         ? new Date(profile.created_at).toLocaleDateString("en-US", {
@@ -108,6 +112,67 @@ export function ProfileHeader({ profile, isOwnProfile = false, onEditProfile }: 
                         <span className="text-sm text-slate-500">Trades</span>
                     </div>
                 </div>
+
+                {/* Wallet Breakdown (Only for own profile) */}
+                {isOwnProfile && (
+                    <div className="mt-6 border-t border-slate-800/50 pt-5">
+                        <div className="mb-3 flex items-center gap-2">
+                            <Wallet className="h-4 w-4 text-emerald-400" />
+                            <h3 className="text-sm font-semibold text-slate-200">Wallet Details</h3>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            {/* SOL Card */}
+                            <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 backdrop-blur-sm transition-all hover:border-emerald-500/30 hover:bg-slate-900/60 group">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 shadow-xl ring-1 ring-white/10 overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <Image
+                                            src="/solana-logo-v2.png"
+                                            alt="SOL"
+                                            width={24}
+                                            height={24}
+                                            className="relative z-10 transition-transform group-hover:scale-110"
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-500">Solana</p>
+                                        <p className="text-sm font-bold text-slate-200">{formattedSol} SOL</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-medium text-emerald-400 group-hover:text-emerald-300 transition-colors">
+                                        ≈ ${solValueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* USDC Card */}
+                            <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/40 p-3.5 backdrop-blur-sm transition-all hover:border-blue-500/30 hover:bg-slate-900/60 group">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 shadow-xl ring-1 ring-white/10 overflow-hidden">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <Image
+                                            src="/usdc-logo-v2.png"
+                                            alt="USDC"
+                                            width={24}
+                                            height={24}
+                                            className="relative z-10 transition-transform group-hover:scale-110"
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-medium text-slate-500">USD Coin</p>
+                                        <p className="text-sm font-bold text-slate-200">{formattedUsdc} USDC</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs font-medium text-blue-400 group-hover:text-blue-300 transition-colors">
+                                        ≈ ${usdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

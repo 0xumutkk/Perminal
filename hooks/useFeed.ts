@@ -10,7 +10,7 @@ export interface FeedPost extends Post {
     user_has_reposted: boolean;
 }
 
-export function useFeed(userId?: string) {
+export function useFeed(userId?: string, marketId?: string) {
     const [posts, setPosts] = useState<FeedPost[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -34,6 +34,11 @@ export function useFeed(userId?: string) {
                 query = query.eq("user_id", userId);
             }
 
+            // If marketId is provided, fetch only posts tagged to that market
+            if (marketId) {
+                query = query.eq("market_id", marketId);
+            }
+
             const { data, error: fetchError } = await query;
 
             if (fetchError) throw fetchError;
@@ -55,7 +60,7 @@ export function useFeed(userId?: string) {
         } finally {
             setIsLoading(false);
         }
-    }, [userId]);
+    }, [userId, marketId]);
 
     // We'll expose createPost from useInteractions instead, or separate it.
     // Ideally useFeed should just fetch. 

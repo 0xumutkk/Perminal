@@ -38,7 +38,7 @@ const navItems = [
 export function Topbar() {
   const { ready, authenticated, login, logout, user, fundWallet } = useAuth();
   const { activeWallet } = useWallets();
-  const { formattedUsdc, isLoading: isBalanceLoading } = useWalletBalance();
+  const { formattedTotalUsd, isLoading: isBalanceLoading } = useWalletBalance();
   const { profile } = useProfile();
   const pathname = usePathname();
   const router = useRouter();
@@ -203,7 +203,7 @@ export function Topbar() {
             <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/30 px-3 py-1.5">
               <Wallet className="h-4 w-4 text-emerald-400" />
               <span className="text-sm font-medium text-emerald-400">
-                {isBalanceLoading ? "..." : formattedUsdc}
+                {isBalanceLoading ? "..." : formattedTotalUsd}
               </span>
             </div>
 

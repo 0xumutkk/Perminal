@@ -8,10 +8,11 @@ import { useInView } from "react-intersection-observer";
 
 interface FeedProps {
     userId?: string;
+    marketId?: string;
 }
 
-export function Feed({ userId }: FeedProps) {
-    const { posts, isLoading, error, fetchFeed } = useFeed(userId);
+export function Feed({ userId, marketId }: FeedProps) {
+    const { posts, isLoading, error, fetchFeed } = useFeed(userId, marketId);
     const hasFetched = useRef(false);
 
     // TODO: Add pagination support to useFeed and here
@@ -22,7 +23,7 @@ export function Feed({ userId }: FeedProps) {
             fetchFeed();
             hasFetched.current = true;
         }
-    }, [fetchFeed, userId]);
+    }, [fetchFeed, userId, marketId]);
 
     if (isLoading && posts.length === 0) {
         return (
@@ -50,8 +51,12 @@ export function Feed({ userId }: FeedProps) {
         return (
             <div className="flex flex-col items-center justify-center p-12 text-slate-500">
                 <MessageSquare className="h-12 w-12 mb-4 opacity-50" />
-                <p className="text-lg font-medium">No posts yet</p>
-                <p className="text-sm">Be the first to share something!</p>
+                <p className="text-lg font-medium">
+                    {marketId ? "No posts about this market yet" : "No posts yet"}
+                </p>
+                <p className="text-sm">
+                    {marketId ? "Be the first to share your thoughts!" : "Be the first to share something!"}
+                </p>
             </div>
         );
     }

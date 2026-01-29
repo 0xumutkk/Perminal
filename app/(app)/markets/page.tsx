@@ -10,7 +10,7 @@ export default function MarketsPage() {
   const [activeCategory, setActiveCategory] = useState("All");
 
   const { data, isLoading } = useMarkets({
-    limit: 50,
+    limit: 100,
     category: activeCategory === "All" ? undefined : activeCategory
   });
 

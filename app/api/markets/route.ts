@@ -2,10 +2,12 @@
  * Markets API Route
  * Fetches prediction markets from dFlow Metadata API
  * Dev Endpoint: https://dev-prediction-markets-api.dflow.net
+ * 
+ * NOTE: Using Events API (not Markets API) to access imageUrl
  */
 
 import { NextResponse } from "next/server";
-import type { DFlowMarketsResponse, DFlowMarket } from "@/lib/types/dflow.types";
+import type { DFlowEventsResponse, DFlowEvent, DFlowMarket } from "@/lib/types/dflow.types";
 import { USDC_MINT } from "@/lib/types/dflow.types";
 import type { Market, MarketCategory } from "@/lib/mock-data";
 
@@ -64,7 +66,7 @@ function extractMints(accounts: DFlowMarket["accounts"]): { yesMint: string; noM
 }
 
 // Transform dFlow market to our Market interface
-function transformMarket(dflowMarket: DFlowMarket): Market {
+function transformMarket(dflowMarket: DFlowMarket, eventImageUrl?: string): Market {
     // Calculate yesPrice from yesBid/yesAsk (midpoint) or default to 0.5
     let yesPrice = 0.5;
     if (dflowMarket.yesAsk && dflowMarket.yesBid) {
@@ -92,7 +94,7 @@ function transformMarket(dflowMarket: DFlowMarket): Market {
         title: dflowMarket.title,
         description: dflowMarket.subtitle || dflowMarket.rulesPrimary,
         category: mapToCategory(dflowMarket.eventTicker),
-        imageUrl: undefined, // dFlow markets API doesn't include images
+        imageUrl: eventImageUrl, // Use image from parent event
         yesPrice,
         volume: dflowMarket.volume || 0,
         liquidityScore: dflowMarket.openInterest || 0,
@@ -102,6 +104,15 @@ function transformMarket(dflowMarket: DFlowMarket): Market {
         // Map dynamic labels
         yesLabel: dflowMarket.yesSubTitle,
         noLabel: dflowMarket.noSubTitle,
+        // Pass through dFlow-specific fields
+        ticker: dflowMarket.ticker,
+        eventTicker: dflowMarket.eventTicker,
+        status: dflowMarket.status,
+        yesAsk: dflowMarket.yesAsk,
+        yesBid: dflowMarket.yesBid,
+        noAsk: dflowMarket.noAsk,
+        noBid: dflowMarket.noBid,
+        openInterest: dflowMarket.openInterest,
     };
 }
 
@@ -112,12 +123,13 @@ export async function GET(request: Request) {
         const limit = searchParams.get("limit") || "20";
         const cursor = searchParams.get("cursor");
         const status = searchParams.get("status") || "active";
-        const tickers = searchParams.get("tickers");
+        const category = searchParams.get("category");
 
-        // Build dFlow API request params
+        // Build dFlow API request params for Events endpoint
         const dflowParams = new URLSearchParams({
             limit,
             status,
+            withNestedMarkets: "true", // Important: fetch markets nested in events
             isInitialized: "true", // Only get markets with valid accounts
         });
 
@@ -125,7 +137,7 @@ export async function GET(request: Request) {
             dflowParams.set("cursor", cursor);
         }
 
-        console.log(`[Markets API] Fetching: ${DFLOW_METADATA_API_URL}/api/v1/markets?${dflowParams}`);
+        console.log(`[Markets API] Fetching: ${DFLOW_METADATA_API_URL}/api/v1/events?${dflowParams}`);
 
         const headers: HeadersInit = {
             "Content-Type": "application/json",
@@ -137,42 +149,64 @@ export async function GET(request: Request) {
             headers["x-api-key"] = DFLOW_API_KEY;
         }
 
-        const response = await fetch(`${DFLOW_METADATA_API_URL}/api/v1/markets?${dflowParams}`, {
-            method: "GET",
+        const response = await fetch(`${DFLOW_METADATA_API_URL}/api/v1/events?${dflowParams}`, {
             headers,
-            next: { revalidate: 30 }, // Cache for 30 seconds
+            next: { revalidate: 60 }, // Cache for 60 seconds
         });
 
         if (!response.ok) {
+            console.error(`[Markets API] dFlow API error: ${response.status} ${response.statusText}`);
             const errorText = await response.text();
-            console.error(`[Markets API] Error ${response.status}:`, errorText);
-            return NextResponse.json(
-                { error: `dFlow API error: ${response.status}`, details: errorText },
-                { status: response.status }
-            );
+            console.error(`[Markets API] Error body: ${errorText}`);
+            throw new Error(`dFlow API returned ${response.status}: ${response.statusText}`);
         }
 
-        const data: DFlowMarketsResponse = await response.json();
-        console.log(`[Markets API] Received ${data.markets?.length || 0} markets`);
+        const data: DFlowEventsResponse = await response.json();
+        console.log(`[Markets API] Fetched ${data.events?.length || 0} events from dFlow`);
 
-        // Transform dFlow markets to our format
-        let markets: Market[] = (data.markets || []).map(transformMarket);
+        // Flatten markets from events and apply imageUrl from parent event
+        const allMarkets: Market[] = [];
+        const requestedLimit = parseInt(limit, 10);
 
-        // Filter by specific tickers if requested
-        if (tickers) {
-            const tickerList = tickers.split(",").map((t) => t.trim().toUpperCase());
-            markets = markets.filter((m) => tickerList.includes(m.id.toUpperCase()));
+        if (data.events) {
+            for (const event of data.events) {
+                if (event.markets && event.markets.length > 0) {
+                    for (const market of event.markets) {
+                        // Stop if we've reached the limit
+                        if (allMarkets.length >= requestedLimit) {
+                            break;
+                        }
+
+                        const transformedMarket = transformMarket(market, event.imageUrl);
+
+                        // Apply category filter if provided
+                        if (!category || transformedMarket.category === category) {
+                            allMarkets.push(transformedMarket);
+                        }
+                    }
+                }
+
+                // Break outer loop too if we've reached the limit
+                if (allMarkets.length >= requestedLimit) {
+                    break;
+                }
+            }
         }
+
+        console.log(`[Markets API] Returning ${allMarkets.length} markets (category: ${category || 'all'})`);
 
         return NextResponse.json({
-            markets,
+            markets: allMarkets,
             cursor: data.cursor,
-            total: markets.length,
+            fallback: false,
         });
     } catch (error) {
-        console.error("[Markets API] Exception:", error);
+        console.error("[Markets API] Fatal error:", error);
         return NextResponse.json(
-            { error: "Failed to fetch markets", details: String(error) },
+            {
+                error: "Failed to fetch markets",
+                details: error instanceof Error ? error.message : "Unknown error",
+            },
             { status: 500 }
         );
     }

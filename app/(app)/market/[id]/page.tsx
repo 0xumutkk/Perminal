@@ -7,8 +7,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Loader2, ArrowLeft, TrendingUp, Clock, DollarSign, Activity } from "lucide-react";
+import { Loader2, TrendingUp, Clock, DollarSign, Activity } from "lucide-react";
 import Link from "next/link";
+import { Feed } from "@/components/social/Feed";
 import { format } from "date-fns";
 import { useState } from "react";
 
@@ -134,14 +135,19 @@ export default function MarketDetailPage() {
             <div className="grid gap-6 md:grid-cols-3">
                 {/* Left Column: Chart & Analysis */}
                 <div className="space-y-6 md:col-span-2">
-                    {/* Chart Placeholder */}
-                    <Card className="flex h-[300px] flex-col items-center justify-center border-slate-800 bg-slate-950/50 p-6 shadow-sm">
-                        <div className="rounded-full bg-slate-900 p-4">
-                            <TrendingUp className="h-8 w-8 text-slate-600" />
-                        </div>
-                        <p className="mt-4 text-sm font-medium text-slate-500">Price History Chart</p>
-                        <p className="text-xs text-slate-600">Coming soon</p>
-                    </Card>
+                    {/* Price Chart Placeholder */}
+                    {market.ticker ? (
+                        <Card className="border-slate-800 bg-slate-950/30 p-6">
+                            <h3 className="mb-4 text-lg font-semibold text-slate-200">Price Chart</h3>
+                            <div className="flex h-[300px] flex-col items-center justify-center">
+                                <div className="rounded-full bg-slate-900 p-4">
+                                    <TrendingUp className="h-8 w-8 text-slate-600" />
+                                </div>
+                                <p className="mt-4 text-sm font-medium text-slate-500">Price History Chart</p>
+                                <p className="text-xs text-slate-600">Coming soon with production API</p>
+                            </div>
+                        </Card>
+                    ) : null}
 
                     {/* Description/Rules */}
                     <Card className="border-slate-800 bg-slate-950/30 p-6">
@@ -151,6 +157,12 @@ export default function MarketDetailPage() {
                             The market data is provided by dFlow prediction markets.
                             {market.description}
                         </p>
+                    </Card>
+
+                    {/* Market Discussion Feed */}
+                    <Card className="border-slate-800 bg-slate-950/30 p-6">
+                        <h3 className="mb-4 text-lg font-semibold text-slate-200">Market Discussion</h3>
+                        <Feed marketId={market.id} />
                     </Card>
                 </div>
 
